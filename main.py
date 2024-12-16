@@ -5,207 +5,227 @@ import plotly.graph_objects as go
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime, timedelta
 
-# Set page config with improved styling
-st.set_page_config(layout="wide", page_title="Cogent Analysis", page_icon="🔒")
+# Set page config
+st.set_page_config(layout="wide", page_title="Security Vulnerability Dashboard")
 
-# Custom CSS for better styling
+# Add custom CSS
 st.markdown("""
     <style>
-        .main {
-            background-color: #f8f9fa;
-        }
         .stMetric {
-            background-color: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #f0f2f6;
+            padding: 10px;
+            border-radius: 5px;
         }
         .plot-container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin: 10px 0;
-        }
-        .suspicious-port {
-            background-color: #2e2e2e;
-            color: #00ff00;
-            font-family: monospace;
-            padding: 20px;
-            border-radius: 8px;
-            white-space: pre-wrap;
-        }
-        h1 {
-            color: #1f77b4;
-            padding-bottom: 20px;
-        }
-        h2 {
-            color: #2c3e50;
-            padding: 10px 0;
+            padding: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.title("🔒 Cogent Analysis")
+# Sample data - you'll replace this with your actual data
+key_stats = {
+    "Total Devices": 229,
+    "Average Vulnerabilities per device": 5.9,
+    "Devices with Security Coverage": "46.3% (105 devices)"
+}
 
-# Suspicious Port Activity Data
-suspicious_port_data = """Port 3389 (Unknown):
-Total Connections: 1
-Total bytes transferred: 6,144
-Average bytes per connection: 6144.00
-Protocol distribution:
-Protocol
-TCP    1
-Name: count, dtype: int64
+vulnerability_stats = {
+    "Total Vulnerabilities": 1349,
+    "Average CVSS Score": 7.21,
+    "Top 5 most Common": "46.3% (105 devices)"
+}
 
-Port 21 (Unknown):
-Total Connections: 1
-Total bytes transferred: 7,680
-Average bytes per connection: 7680.00
-Protocol distribution:
-Protocol
-TCP    1
-Name: count, dtype: int64
-
-Port 22 (SSH):
-Total Connections: 99
-Total bytes transferred: 1,046,521
-Average bytes per connection: 10570.92
-Protocol distribution:
-Protocol
-TCP    57
-UDP    42
-Name: count, dtype: int64"""
-
-# CVSS Correlation Data
-cvss_correlation = pd.DataFrame({
-    'Feature': [
-        'pattern_network',
-        'pattern_access_control',
-        'pattern_encryption',
-        'pattern_authentication',
-        'topic_4',
-        'topic_3',
-        'topic_2',
-        'topic_1',
-        'topic_0'
+top_vulnerabilities = pd.DataFrame({
+    "Vulnerability": [
+        "OpenSSH Remote Unauthenticated Code Execution Vulnerability (regreSSHion)",
+        "OpenSSH OS Command Injection Vulnerability",
+        "SHA1 deprecated setting for SSH",
+        "OpenSSH Authentication Bypass Vulnerability",
+        "OpenSSH Incomplete Constrains Sensitive Information Disclosure Vulnerability"
     ],
-    'Correlation': [
-        -0.02,
-        -0.06,
-        -0.02,
-        -0.01,
-        -0.05,
-        -0.03,
-        -0.02,
-        -0.08,
-        -0.08
-    ]
+    "Number of Vulnerabilities": [84, 65, 64, 59, 59]
 })
 
-# Layout
+# Platform distribution data
+platform_data = pd.DataFrame({
+    'Platform': ['Linux', 'Windows', 'MacOS', 'Other'],
+    'Percentage': [73.1, 22.5, 3.08, 1.32]
+})
+
+# Traffic volume data
+traffic_data = pd.DataFrame({
+    'Port': ['HTTP', 'HTTPS', 'MySQL', 'Alt-HTTP', 'SSH'],
+    'Volume': [1.2, 1.18, 0.9, 0.98, 1.15],
+    'Priority': ['High', 'High', 'Medium', 'Medium', 'High']
+})
+
+# Severity distribution data
+severity_data = pd.DataFrame({
+    'Category': ['monitoring', 'data_storage', 'web_security', 'encryption', 'categorized', 'access_control'] * 5,
+    'Severity': ['critical', 'high', 'medium', 'low', 'info'] * 6,
+    'Count': [150, 200, 250, 100, 50] * 6
+})
+
+# Dashboard title and date filter
+st.title("Security Vulnerability Dashboard")
+
+# Add date range selector
+col_date1, col_date2 = st.columns(2)
+with col_date1:
+    start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30))
+with col_date2:
+    end_date = st.date_input("End Date", datetime.now())
+
+# Add severity filter
+severity_filter = st.multiselect(
+    "Filter by Severity",
+    ['Critical', 'High', 'Medium', 'Low', 'Info'],
+    default=['Critical', 'High']
+)
+
+# Layout: Key Statistics with enhanced styling
 col1, col2 = st.columns(2)
 
 with col1:
-    # Traffic Volume Chart
-    st.markdown('<div class="plot-container">', unsafe_allow_html=True)
-    st.subheader("Traffic Volume by Port and Priority")
-    traffic_data = pd.DataFrame({
-        'Port': ['HTTP', 'HTTPS', 'MySQL', 'Alt-HTTP', 'SSH'],
-        'Volume': [1.2, 1.2, 0.9, 1.0, 1.15]
-    })
-    fig_traffic = px.bar(traffic_data, x='Port', y='Volume',
-                        title='Traffic Volume by Port',
-                        color_discrete_sequence=['#ffd700'])
-    fig_traffic.update_layout(
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font={'size': 12}
-    )
-    st.plotly_chart(fig_traffic, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.subheader("Key Statistics")
+    for key, value in key_stats.items():
+        st.metric(label=key, value=value)
 
 with col2:
-    # Suspicious Port Activity
-    st.markdown('<div class="plot-container">', unsafe_allow_html=True)
-    st.subheader("Suspicious Port Activity")
-    st.markdown(f'<div class="suspicious-port">{suspicious_port_data}</div>', 
-                unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.subheader("Vulnerabilities")
+    for key, value in vulnerability_stats.items():
+        st.metric(label=key, value=value)
 
-# CVSS Correlation Analysis
-st.markdown('<div class="plot-container">', unsafe_allow_html=True)
-st.subheader("Feature Correlation with CVSS Scores")
-fig_correlation = px.bar(cvss_correlation, 
-                        x='Correlation', 
-                        y='Feature',
-                        orientation='h',
-                        title='Feature Correlation with CVSS Scores')
-fig_correlation.update_layout(
-    plot_bgcolor='white',
-    paper_bgcolor='white',
-    font={'size': 12},
-    yaxis={'title': ''},
-    xaxis={'title': 'Correlation Coefficient'},
-    showlegend=False
+# Interactive Top 5 Linux Vulnerabilities
+st.subheader("Top 5 Most Linux Vulnerabilities")
+if st.checkbox("Show detailed vulnerability information"):
+    st.dataframe(
+        top_vulnerabilities.style.background_gradient(cmap='YlOrRd', subset=['Number of Vulnerabilities']),
+        use_container_width=True
+    )
+else:
+    st.bar_chart(data=top_vulnerabilities.set_index('Vulnerability')['Number of Vulnerabilities'])
+
+# Interactive Platform Distribution
+st.subheader("Platform Distribution")
+chart_type = st.radio("Select chart type", ["Pie Chart", "Bar Chart"])
+if chart_type == "Pie Chart":
+    fig_platform = px.pie(platform_data, values='Percentage', names='Platform',
+                         title='Platform Distribution')
+else:
+    fig_platform = px.bar(platform_data, x='Platform', y='Percentage',
+                         title='Platform Distribution')
+st.plotly_chart(fig_platform, use_container_width=True)
+
+# Interactive Traffic Volume
+st.subheader("Traffic Volume by Port and Priority")
+show_priority = st.checkbox("Color by Priority", value=True)
+if show_priority:
+    fig_traffic = px.bar(traffic_data, x='Port', y='Volume',
+                        color='Priority', title='Traffic Volume by Port and Priority')
+else:
+    fig_traffic = px.bar(traffic_data, x='Port', y='Volume',
+                        title='Traffic Volume by Port and Priority')
+fig_traffic.update_layout(hovermode='x unified')
+st.plotly_chart(fig_traffic, use_container_width=True)
+
+# Interactive Vulnerability Trends
+st.subheader("Smoothed Vulnerability Trends (7-day Rolling Average)")
+# Generate sample time series data
+dates = pd.date_range(start='2023-11-01', end='2024-09-30', freq='D')
+n_days = len(dates)
+np.random.seed(42)
+trend_data = pd.DataFrame({
+    'Date': dates,
+    'Critical': np.random.randn(n_days).cumsum(),
+    'High': np.random.randn(n_days).cumsum(),
+    'Medium': np.random.randn(n_days).cumsum(),
+    'Low': np.random.randn(n_days).cumsum()
+})
+
+# Add line selection
+selected_lines = st.multiselect(
+    "Select vulnerability levels to display",
+    ['Critical', 'High', 'Medium', 'Low'],
+    default=['Critical', 'High']
 )
-fig_correlation.update_traces(marker_color='#1f77b4')
-st.plotly_chart(fig_correlation, use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
-# Add interactive filters in sidebar
+filtered_trend_data = trend_data[['Date'] + selected_lines]
+fig_trends = px.line(filtered_trend_data, x='Date', y=selected_lines,
+                     title='Vulnerability Trends')
+fig_trends.update_layout(hovermode='x unified')
+st.plotly_chart(fig_trends, use_container_width=True)
+
+# Word Cloud and Severity Distribution
+st.subheader("Risk Analysis")
+col3, col4 = st.columns(2)
+
+# Word cloud data
+words_critical = "supported getting cpto site longer supported binary underlying commands mail relaying functions checks nginx relaying regular"
+words_high = "privilege escalation allow unauthenticated attacker authenticated qid crash target detect apache vulnerabilities"
+words_medium = "servers usually bug eclipse java jetty associated serving"
+words_low = "settings communicate target secure method cryptographic login protocol remote"
+
+with col3:
+    st.subheader("Risk Word Clouds")
+    risk_level = st.selectbox("Select Risk Level", 
+                             ["Critical", "High", "Medium", "Low"])
+    
+    # Generate word cloud based on selection
+    if risk_level == "Critical":
+        words = words_critical
+    elif risk_level == "High":
+        words = words_high
+    elif risk_level == "Medium":
+        words = words_medium
+    else:
+        words = words_low
+        
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(words)
+    
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.axis('off')
+    st.pyplot(fig)
+
+with col4:
+    st.subheader("Severity Distribution by Category")
+    # Interactive stacked bar chart
+    fig_severity = px.bar(severity_data, x='Category', y='Count', color='Severity',
+                         title='Severity Distribution by Category',
+                         color_discrete_sequence=['red', 'orange', 'yellow', 'green', 'blue'])
+    fig_severity.update_layout(barmode='stack')
+    st.plotly_chart(fig_severity, use_container_width=True)
+
+# Add download button for reports
+if st.button("Generate Report"):
+    # Create a summary DataFrame
+    report_data = pd.DataFrame({
+        'Metric': ['Total Devices', 'Total Vulnerabilities', 'Average CVSS Score'],
+        'Value': [229, 1349, 7.21]
+    })
+    
+    # Convert to CSV
+    csv = report_data.to_csv(index=False)
+    st.download_button(
+        label="Download Report as CSV",
+        data=csv,
+        file_name="security_report.csv",
+        mime="text/csv"
+    )
+
+# Add sidebar for additional controls
 with st.sidebar:
     st.header("Dashboard Controls")
+    st.subheader("Refresh Rate")
+    refresh_rate = st.slider("Select refresh rate (minutes)", 1, 60, 5)
     
-    # Time Range Filter
-    st.subheader("Time Range")
-    time_range = st.select_slider(
-        "Select Time Range",
-        options=["1h", "6h", "12h", "24h", "7d", "30d"],
-        value="24h"
-    )
+    st.subheader("Display Settings")
+    show_metrics = st.checkbox("Show Metrics", value=True)
+    show_trends = st.checkbox("Show Trends", value=True)
     
-    # Port Filter
-    st.subheader("Port Filter")
-    ports = st.multiselect(
-        "Select Ports",
-        ["HTTP", "HTTPS", "MySQL", "Alt-HTTP", "SSH"],
-        default=["HTTP", "HTTPS", "SSH"]
-    )
-    
-    # Severity Filter
-    st.subheader("Severity Filter")
-    severity = st.multiselect(
-        "Select Severity Levels",
-        ["Critical", "High", "Medium", "Low"],
-        default=["Critical", "High"]
-    )
-    
-    # Refresh Button
-    if st.button("Refresh Data", key="refresh"):
+    if st.button("Refresh Data"):
         st.experimental_rerun()
-
-# Add export functionality
-st.markdown('<div class="plot-container">', unsafe_allow_html=True)
-col3, col4 = st.columns(2)
-with col3:
-    if st.button("Export Report"):
-        # Here you would generate your report
-        st.download_button(
-            label="Download Report",
-            data="Report data here",
-            file_name="security_report.pdf",
-            mime="application/pdf"
-        )
-with col4:
-    if st.button("Export Raw Data"):
-        # Here you would prepare your raw data
-        st.download_button(
-            label="Download Raw Data",
-            data="Raw data here",
-            file_name="security_data.csv",
-            mime="text/csv"
-        )
-st.markdown('</div>', unsafe_allow_html=True)
