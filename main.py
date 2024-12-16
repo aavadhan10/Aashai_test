@@ -8,7 +8,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 # Set page config
-st.set_page_config(layout="wide", page_title="Security Vulnerability Dashboard")
+st.set_page_config(layout="wide", page_title="Cogent Analysis Dashboard by Aashai Avadhani")
 
 # Add custom CSS
 st.markdown("""
