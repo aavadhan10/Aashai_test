@@ -5,256 +5,229 @@ import plotly.graph_objects as go
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import numpy as np
-import json
-from datetime import datetime, timedelta
-import io
-import base64
+from datetime import datetime
 
-# Set page config with dark theme support
+# Set page config
 st.set_page_config(layout="wide", page_title="Cogent Analysis", page_icon="🔒")
 
-# Color schemes
-color_schemes = {
-    "Default": {
-        "primary": "#1f77b4",
-        "secondary": "#ff7f0e",
-        "accent": "#2ca02c",
-        "background": "#ffffff",
-        "text": "#2c3e50"
-    },
-    "Dark": {
-        "primary": "#3498db",
-        "secondary": "#e74c3c",
-        "accent": "#2ecc71",
-        "background": "#2c3e50",
-        "text": "#ecf0f1"
-    },
-    "High Contrast": {
-        "primary": "#000000",
-        "secondary": "#ff0000",
-        "accent": "#00ff00",
-        "background": "#ffffff",
-        "text": "#000000"
-    }
-}
-
-# Enhanced custom CSS with theme support
-def get_custom_css(theme):
-    return f"""
+# Enhanced Custom CSS
+st.markdown("""
     <style>
-        .main {{
-            background-color: {theme["background"]};
-            color: {theme["text"]};
-        }}
-        .stMetric {{
-            background-color: {theme["background"]};
+        .main {
+            background-color: #f8f9fa;
+        }
+        .stMetric {
+            background-color: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             transition: transform 0.3s ease;
-        }}
-        .stMetric:hover {{
+        }
+        .stMetric:hover {
             transform: translateY(-5px);
-        }}
-        .plot-container {{
-            background-color: {theme["background"]};
+        }
+        .plot-container {
+            background-color: white;
             padding: 25px;
             border-radius: 12px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             margin: 15px 0;
             transition: all 0.3s ease;
-        }}
-        .plot-container:hover {{
+        }
+        .plot-container:hover {
             box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-        }}
-        .suspicious-port {{
+        }
+        .suspicious-port {
             background-color: #2e2e2e;
             color: #00ff00;
             font-family: 'Courier New', monospace;
             padding: 25px;
             border-radius: 10px;
             white-space: pre-wrap;
-            overflow-x: auto;
-        }}
-        .export-button {{
-            background-color: {theme["primary"]};
+        }
+        h1 {
+            color: #1f77b4;
+            padding-bottom: 20px;
+        }
+        h2 {
+            color: #2c3e50;
+            padding: 10px 0;
+        }
+        .stButton button {
+            background-color: #1f77b4;
             color: white;
-            padding: 10px 20px;
             border-radius: 5px;
             border: none;
-            cursor: pointer;
             transition: background-color 0.3s ease;
-        }}
-        .export-button:hover {{
-            background-color: {theme["secondary"]};
-        }}
-        .info-tooltip {{
-            color: {theme["text"]};
-            font-size: 14px;
-            padding: 5px;
-        }}
+        }
+        .stButton button:hover {
+            background-color: #2c3e50;
+        }
     </style>
-    """
+""", unsafe_allow_html=True)
 
-# Initialize session state for persistent settings
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'Default'
-if 'refresh_interval' not in st.session_state:
-    st.session_state.refresh_interval = 5
-
-# Sidebar Theme Selection
-with st.sidebar:
-    st.title("Dashboard Settings")
-    selected_theme = st.selectbox(
-        "Select Theme",
-        options=list(color_schemes.keys()),
-        index=list(color_schemes.keys()).index(st.session_state.theme)
-    )
-    st.session_state.theme = selected_theme
-    
-    # Auto-refresh settings
-    st.subheader("Auto Refresh")
-    auto_refresh = st.checkbox("Enable Auto Refresh", value=False)
-    if auto_refresh:
-        refresh_interval = st.slider("Refresh Interval (minutes)", 1, 60, st.session_state.refresh_interval)
-        st.session_state.refresh_interval = refresh_interval
-
-# Apply selected theme
-theme = color_schemes[st.session_state.theme]
-st.markdown(get_custom_css(theme), unsafe_allow_html=True)
-
-# Advanced Filters
-with st.sidebar:
-    st.subheader("Advanced Filters")
-    
-    # Time Range with custom input
-    st.write("Time Range")
-    time_range_type = st.radio("Select time range type", ["Preset", "Custom"])
-    if time_range_type == "Preset":
-        time_range = st.select_slider(
-            "Select Time Range",
-            options=["1h", "6h", "12h", "24h", "7d", "30d"],
-            value="24h"
-        )
-    else:
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("Start Date")
-        with col2:
-            end_date = st.date_input("End Date")
-    
-    # Enhanced Port Filter
-    st.subheader("Port Filter")
-    port_filter_type = st.radio("Port filter type", ["Common Ports", "Custom Port"])
-    if port_filter_type == "Common Ports":
-        ports = st.multiselect(
-            "Select Ports",
-            ["HTTP", "HTTPS", "MySQL", "Alt-HTTP", "SSH"],
-            default=["HTTP", "HTTPS", "SSH"]
-        )
-    else:
-        custom_port = st.number_input("Enter custom port number", min_value=1, max_value=65535)
-    
-    # CVSS Score Range
-    st.subheader("CVSS Score Range")
-    cvss_range = st.slider("Select CVSS Score Range", 0.0, 10.0, (0.0, 10.0))
-    
-    # Protocol Filter
-    protocols = st.multiselect(
-        "Select Protocols",
-        ["TCP", "UDP", "ICMP"],
-        default=["TCP", "UDP"]
-    )
-
-# Main Dashboard Content
+# Title
 st.title("🔒 Cogent Analysis")
 
-# Add tabs for different views
-tab1, tab2, tab3 = st.tabs(["Overview", "Detailed Analysis", "Reports"])
-
-with tab1:
-    # Overview metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Alerts", "1,349", "15%")
-    with col2:
-        st.metric("Average CVSS", "7.21", "-2.3%")
-    with col3:
-        st.metric("Active Threats", "23", "5%")
+# Sidebar controls
+with st.sidebar:
+    st.header("Dashboard Controls")
     
-    # Main charts (existing code)
-    # ... (previous chart code remains the same)
-
-with tab2:
-    # Detailed Analysis
-    st.subheader("Advanced Security Metrics")
-    
-    # Add correlation analysis
-    st.write("Feature Correlation Analysis")
-    correlation_type = st.selectbox(
-        "Select Correlation Type",
-        ["CVSS Score", "Alert Frequency", "Impact Score"]
+    # Time Range Filter
+    st.subheader("Time Range")
+    time_range = st.select_slider(
+        "Select Time Range",
+        options=["1h", "6h", "12h", "24h", "7d", "30d"],
+        value="24h"
     )
     
-    # Add threat intelligence feed
-    st.subheader("Threat Intelligence Feed")
-    st.write("Real-time threat intelligence updates")
-    
-    # Add network topology view
-    st.subheader("Network Topology")
-    st.write("Interactive network diagram")
-
-with tab3:
-    # Reports
-    st.subheader("Report Generation")
-    
-    # Report options
-    report_type = st.selectbox(
-        "Select Report Type",
-        ["Executive Summary", "Technical Detail", "Compliance Report"]
+    # Port Filter
+    st.subheader("Port Filter")
+    ports = st.multiselect(
+        "Select Ports",
+        ["HTTP", "HTTPS", "MySQL", "Alt-HTTP", "SSH"],
+        default=["HTTP", "HTTPS", "SSH"]
     )
     
-    include_sections = st.multiselect(
-        "Include Sections",
-        ["Vulnerability Analysis", "Traffic Analysis", "Threat Intelligence", "Recommendations"],
-        default=["Vulnerability Analysis"]
-    )
-    
-    # Export format options
-    export_format = st.radio("Export Format", ["PDF", "CSV", "JSON", "Excel"])
-    
-    if st.button("Generate Report"):
-        # Generate report based on selections
-        st.success("Report generated successfully!")
-        
-        # Add download button
-        if export_format == "CSV":
-            # Sample CSV data
-            csv_data = pd.DataFrame({
-                "Metric": ["Total Alerts", "CVSS Score"],
-                "Value": [1349, 7.21]
-            }).to_csv(index=False)
-            
-            st.download_button(
-                label="Download Report",
-                data=csv_data,
-                file_name=f"security_report_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv"
-            )
+    # Data Refresh
+    if st.button("Refresh Data", key="refresh"):
+        st.experimental_rerun()
 
-# Add real-time monitoring section
-st.subheader("Real-time Monitoring")
-if st.button("Start Monitoring"):
-    with st.empty():
-        # Placeholder for real-time updates
-        st.write("Monitoring active...")
+# Key Statistics
+col1, col2 = st.columns(2)
 
-# Footer with additional information
-st.markdown("---")
-col1, col2, col3 = st.columns(3)
 with col1:
-    st.write("Last updated: ", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    st.markdown('<div class="plot-container">', unsafe_allow_html=True)
+    st.subheader("Key Statistics")
+    st.metric("Total Devices", "229")
+    st.metric("Average Vulnerabilities per device", "5.9")
+    st.metric("Devices with Security Coverage", "46.3% (105 devices)")
+    st.markdown('</div>', unsafe_allow_html=True)
+
 with col2:
-    st.write("Total devices monitored: 229")
+    st.markdown('<div class="plot-container">', unsafe_allow_html=True)
+    st.subheader("Vulnerabilities")
+    st.metric("Total Vulnerabilities", "1349")
+    st.metric("Average CVSS Score", "7.21")
+    st.metric("Top 5 most Common", "46.3% (105 devices)")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Suspicious Port Activity
+st.markdown('<div class="plot-container">', unsafe_allow_html=True)
+st.subheader("Suspicious Port Activity")
+suspicious_port_data = """Port 3389 (Unknown):
+Total Connections: 1
+Total bytes transferred: 6,144
+Average bytes per connection: 6144.00
+Protocol distribution:
+Protocol
+TCP    1
+Name: count, dtype: int64
+
+Port 21 (Unknown):
+Total Connections: 1
+Total bytes transferred: 7,680
+Average bytes per connection: 7680.00
+Protocol distribution:
+Protocol
+TCP    1
+Name: count, dtype: int64
+
+Port 22 (SSH):
+Total Connections: 99
+Total bytes transferred: 1,046,521
+Average bytes per connection: 10570.92
+Protocol distribution:
+Protocol
+TCP    57
+UDP    42
+Name: count, dtype: int64"""
+st.markdown(f'<div class="suspicious-port">{suspicious_port_data}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Traffic Volume Chart
+st.markdown('<div class="plot-container">', unsafe_allow_html=True)
+st.subheader("Traffic Volume by Port and Priority")
+traffic_data = pd.DataFrame({
+    'Port': ['HTTP', 'HTTPS', 'MySQL', 'Alt-HTTP', 'SSH'],
+    'Volume': [1.2, 1.2, 0.9, 1.0, 1.15]
+})
+
+fig_traffic = px.bar(traffic_data, x='Port', y='Volume',
+                    title='Traffic Volume by Port')
+fig_traffic.update_traces(marker_color='#ffd700')
+fig_traffic.update_layout(
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    font={'size': 12}
+)
+st.plotly_chart(fig_traffic, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# CVSS Correlation Analysis
+st.markdown('<div class="plot-container">', unsafe_allow_html=True)
+st.subheader("Feature Correlation with CVSS Scores")
+cvss_correlation = pd.DataFrame({
+    'Feature': [
+        'pattern_network',
+        'pattern_access_control',
+        'pattern_encryption',
+        'pattern_authentication',
+        'topic_4',
+        'topic_3',
+        'topic_2',
+        'topic_1',
+        'topic_0'
+    ],
+    'Correlation': [
+        -0.02,
+        -0.06,
+        -0.02,
+        -0.01,
+        -0.05,
+        -0.03,
+        -0.02,
+        -0.08,
+        -0.08
+    ]
+})
+
+fig_correlation = px.bar(cvss_correlation, 
+                        x='Correlation', 
+                        y='Feature',
+                        orientation='h')
+fig_correlation.update_layout(
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    font={'size': 12},
+    yaxis={'title': ''},
+    xaxis={'title': 'Correlation Coefficient'},
+)
+fig_correlation.update_traces(marker_color='#1f77b4')
+st.plotly_chart(fig_correlation, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Export options
+st.markdown('<div class="plot-container">', unsafe_allow_html=True)
+col3, col4 = st.columns(2)
 with col3:
-    st.write("System Status: 🟢 Healthy")
+    if st.button("Export Report"):
+        st.download_button(
+            label="Download Report",
+            data="Report data",
+            file_name=f"security_report_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf"
+        )
+with col4:
+    if st.button("Export Raw Data"):
+        st.download_button(
+            label="Download Raw Data",
+            data="Raw data",
+            file_name=f"security_data_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Footer
+st.markdown("---")
+st.markdown(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
